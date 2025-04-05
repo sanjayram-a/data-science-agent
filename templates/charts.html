@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard - Data Science Agent{% endblock %}
+
+{% block page_title %}Analytics Dashboard{% endblock %}
+
+{% block head_extra %}
+<!-- ApexCharts CSS -->
+<link href="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Dataset Info Card -->
+    <div class="col-12">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-database fa-2x text-primary me-3"></i>
+                    <div>
+                        <h4 class="mb-1">Current Dataset</h4>
+                        <p class="mb-0 text-muted">
+                            {% if summary.file_name %}
+                                {{ summary.file_name }} ({{ summary.original_rows }} rows × {{ summary.original_cols }} columns)
+                            {% else %}
+                                No data loaded
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-12">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-chart-line me-2"></i>Quick Visualizations</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100 h-100 p-3" onclick="generatePlot('distribution')">
+                            <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                            <div>Distribution Plots</div>
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100 h-100 p-3" onclick="generatePlot('correlation')">
+                            <i class="fas fa-project-diagram fa-2x mb-2"></i>
+                            <div>Correlation Matrix</div>
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100 h-100 p-3" onclick="generatePlot('boxplot')">
+                            <i class="fas fa-box-plot fa-2x mb-2"></i>
+                            <div>Box Plots</div>
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary w-100 h-100 p-3" onclick="generatePlot('scatter')">
+                            <i class="fas fa-braille fa-2x mb-2"></i>
+                            <div>Scatter Plots</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Creation -->
+    <div class="col-md-4">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-plus me-2"></i>Create Chart</h5>
+            </div>
+            <div class="card-body">
+                <form id="chart-form">
+                    <div class="mb-3">
+                        <label class="form-label">Chart Type</label>
+                        <select class="form-select" id="chart-type">
+                            <option value="bar">Bar Chart</option>
+                            <option value="line">Line Chart</option>
+                            <option value="scatter">Scatter Plot</option>
+                            <option value="histogram">Histogram</option>
+                            <option value="box">Box Plot</option>
+                            <option value="pie">Pie Chart</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">X-Axis</label>
+                        <select class="form-select" id="x-column">
+                            <option value="">Select column...</option>
+                            <!-- Add columns dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Y-Axis</label>
+                        <select class="form-select" id="y-column">
+                            <option value="">Select column...</option>
+                            <!-- Add columns dynamically -->
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-magic me-2"></i>Generate Chart
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generated Charts -->
+    <div class="col-md-8">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-chart-line me-2"></i>Generated Charts</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-secondary active" data-view="grid">
+                        <i class="fas fa-th-large"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" data-view="list">
+                        <i class="fas fa-list"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="charts-container" class="charts-grid">
+                    {% if last_plot_filename %}
+                        <div class="chart-item animate__animated animate__fadeIn">
+                            <div class="chart-preview">
+                                <iframe src="{{ url_for('static', filename=last_plot_filename) }}"
+                                        class="w-100" style="height: 300px; border: none;"></iframe>
+                            </div>
+                            <div class="chart-info">
+                                <h6 class="mb-2">{{ last_plot_filename }}</h6>
+                                <div class="btn-group w-100">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="viewChart('{{ last_plot_filename }}')">
+                                        <i class="fas fa-expand-arrows-alt me-1"></i>View
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="downloadChart('{{ last_plot_filename }}')">
+                                        <i class="fas fa-download me-1"></i>Download
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteChart('{{ last_plot_filename }}')">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
+                            <h5>No Charts Yet</h5>
+                            <p class="text-muted">Create your first visualization using the form on the left or try quick actions above.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart View Modal -->
+<div class="modal fade" id="chartModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chart View</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="modalChartFrame" width="100%" height="600" style="border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- ApexCharts JS -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js"></script>
+<script>
+// Chart generation functions
+function generatePlot(type) {
+    const message = {
+        'distribution': 'Generate distribution plots for all numeric columns',
+        'correlation': 'Create a correlation matrix heatmap',
+        'boxplot': 'Create box plots for numeric columns',
+        'scatter': 'Show scatter plot matrix for numeric columns'
+    }[type];
+    
+    if (message) {
+        window.location.href = `{{ url_for('chat_page') }}?message=${encodeURIComponent(message)}`;
+    }
+}
+
+// Chart view functions
+function viewChart(filename) {
+    const modal = new bootstrap.Modal(document.getElementById('chartModal'));
+    document.getElementById('modalChartFrame').src = "{{ url_for('static', filename='') }}" + filename;
+    modal.show();
+}
+
+function downloadChart(filename) {
+    window.open("{{ url_for('static', filename='') }}" + filename, '_blank');
+}
+
+function deleteChart(filename) {
+    if (confirm('Are you sure you want to delete this chart?')) {
+        // Implement delete functionality
+        console.log('Deleting chart:', filename);
+    }
+}
+
+// View toggle
+document.querySelectorAll('[data-view]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const view = e.target.closest('button').dataset.view;
+        document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+        e.target.closest('button').classList.add('active');
+        
+        const container = document.getElementById('charts-container');
+        container.className = view === 'grid' ? 'charts-grid' : 'charts-list';
+    });
+});
+
+// Function to load columns from API
+async function loadColumns() {
+    try {
+        console.log('Charts page: Fetching columns from API...');
+        const response = await fetch('/api/columns');
+        console.log('Charts page: API Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Charts page: API Response data:', data);
+        
+        if (data.success && data.columns && data.columns.length > 0) {
+            const xSelect = document.getElementById('x-column');
+            const ySelect = document.getElementById('y-column');
+            
+            // Clear existing options
+            xSelect.innerHTML = '<option value="">Select column...</option>';
+            ySelect.innerHTML = '<option value="">Select column...</option>';
+            
+            // Add new options based on data columns
+            data.columns.forEach(col => {
+                const xOption = document.createElement('option');
+                xOption.value = col.name;
+                xOption.textContent = `${col.name} (${col.dtype})`;
+                xSelect.appendChild(xOption);
+                
+                // Only add numeric columns to Y-axis for most chart types
+                if (col.is_numeric) {
+                    const yOption = document.createElement('option');
+                    yOption.value = col.name;
+                    yOption.textContent = `${col.name} (${col.dtype})`;
+                    ySelect.appendChild(yOption);
+                }
+            });
+        } else {
+            console.error('No columns returned from API or empty columns array');
+            // Show a message in the form
+            const formMessage = document.createElement('div');
+            formMessage.className = 'alert alert-warning mt-3';
+            formMessage.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>No columns available. Please upload a dataset first.';
+            document.getElementById('chart-form').appendChild(formMessage);
+        }
+    } catch (error) {
+        console.error('Failed to load columns:', error);
+        // Show error message in the form
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'alert alert-danger mt-3';
+        errorMessage.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>Failed to load columns: ${error.message}`;
+        document.getElementById('chart-form').appendChild(errorMessage);
+    }
+}
+
+// Form handling
+document.getElementById('chart-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const type = document.getElementById('chart-type').value;
+    const x = document.getElementById('x-column').value;
+    const y = document.getElementById('y-column').value;
+    
+    let message = `Create a ${type} chart`;
+    if (x) message += ` using ${x}`;
+    if (y) message += ` and ${y}`;
+    
+    window.location.href = `{{ url_for('chat_page') }}?message=${encodeURIComponent(message)}`;
+});
+
+// Update chart type changes to show/hide Y-axis based on chart type
+document.getElementById('chart-type').addEventListener('change', (e) => {
+    const chartType = e.target.value;
+    const yAxisDiv = document.getElementById('y-column').closest('.mb-3');
+    
+    // Hide Y-axis for certain chart types (pie, histogram)
+    if (chartType === 'pie' || chartType === 'histogram') {
+        yAxisDiv.style.display = 'none';
+    } else {
+        yAxisDiv.style.display = 'block';
+    }
+});
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', () => {
+    // Load columns on page load
+    loadColumns();
+    
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+});
+</script>
+{% endblock %}

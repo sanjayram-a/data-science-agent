@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Data Cleaning - Data Science Agent{% endblock %}
+
+{% block page_title %}Data Cleaning{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Data Overview Card -->
+    <div class="col-12">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-table me-2"></i>Dataset Overview</h5>
+                {% if summary.file_name %}
+                <span class="badge bg-primary">{{ summary.file_name }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if summary.file_name %}
+                <div class="row g-4">
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-database fa-2x text-primary me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Original Size</h6>
+                                <p class="mb-0">{{ summary.original_rows }} rows × {{ summary.original_cols }} columns</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-broom fa-2x text-success me-3"></i>
+                            <div>
+                                <h6 class="mb-1">After Cleaning</h6>
+                                <p class="mb-0">{{ summary.cleaned_rows or 'N/A' }} rows × {{ summary.cleaned_cols or 'N/A' }} columns</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle fa-2x text-warning me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Missing Values</h6>
+                                <p class="mb-0" id="missing-values">Analyzing...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-random fa-2x text-info me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Duplicates</h6>
+                                <p class="mb-0" id="duplicates">Analyzing...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <p class="mb-0">No data loaded. Please upload a dataset first.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-md-4">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-magic me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="cleanData('missing')">
+                        <i class="fas fa-eraser me-2"></i>Handle Missing Values
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="cleanData('duplicates')">
+                        <i class="fas fa-clone me-2"></i>Remove Duplicates
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="cleanData('outliers')">
+                        <i class="fas fa-filter me-2"></i>Handle Outliers
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="cleanData('categorical')">
+                        <i class="fas fa-tags me-2"></i>Encode Categorical Data
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column Actions -->
+        <div class="card mt-4 animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-columns me-2"></i>Column Operations</h5>
+            </div>
+            <div class="card-body">
+                <form id="column-ops-form">
+                    <div class="mb-3">
+                        <label class="form-label">Select Column</label>
+                        <select class="form-select" id="column-select">
+                            <option value="">Choose a column...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Operation</label>
+                        <select class="form-select" id="operation-select">
+                            <option value="fillna">Fill Missing Values</option>
+                            <option value="drop">Drop Column</option>
+                            <option value="rename">Rename Column</option>
+                            <option value="type">Change Data Type</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="operation-params">
+                        <!-- Dynamic parameters based on operation -->
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-play me-2"></i>Apply
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Preview -->
+    <div class="col-md-8">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-table me-2"></i>Data Preview</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <div id="data-preview" style="height: 600px; overflow: auto;">
+                        <!-- Data preview will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Function to handle data cleaning operations
+async function cleanData(operation) {
+    try {
+        const response = await fetch('/api/clean', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ operation })
+        });
+        
+        if (!response.ok) throw new Error('Cleaning operation failed');
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('success', 'Success', result.message);
+            updateDataPreview();
+        } else {
+            showToast('error', 'Error', result.error);
+        }
+    } catch (error) {
+        showToast('error', 'Error', error.message);
+    }
+}
+
+// Function to update data preview
+async function updateDataPreview() {
+    try {
+        const response = await fetch('/api/preview');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('data-preview').innerHTML = data.html;
+            updateStats(data.stats);
+        }
+    } catch (error) {
+        console.error('Failed to update preview:', error);
+    }
+}
+
+// Function to update statistics
+function updateStats(stats) {
+    if (stats) {
+        document.getElementById('missing-values').textContent = stats.missing_values;
+        document.getElementById('duplicates').textContent = stats.duplicates;
+    }
+}
+
+// Handle column operations form
+document.getElementById('column-ops-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const column = document.getElementById('column-select').value;
+    const operation = document.getElementById('operation-select').value;
+    
+    // Get operation parameters based on selected operation
+    const params = getOperationParams();
+    
+    try {
+        const response = await fetch('/api/column-operation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                column,
+                operation,
+                params
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('success', 'Success', result.message);
+            updateDataPreview();
+        } else {
+            showToast('error', 'Error', result.error);
+        }
+    } catch (error) {
+        showToast('error', 'Error', error.message);
+    }
+});
+
+// Function to get operation parameters
+function getOperationParams() {
+    const operation = document.getElementById('operation-select').value;
+    const paramsDiv = document.getElementById('operation-params');
+    const params = {};
+    
+    switch (operation) {
+        case 'fillna':
+            params.method = document.getElementById('fill-method').value;
+            params.value = document.getElementById('fill-value')?.value;
+            break;
+        case 'rename':
+            params.new_name = document.getElementById('new-name').value;
+            break;
+        case 'type':
+            params.new_type = document.getElementById('new-type').value;
+            break;
+    }
+    
+    return params;
+}
+
+// Update operation parameters form based on selected operation
+document.getElementById('operation-select').addEventListener('change', (e) => {
+    const operation = e.target.value;
+    const paramsDiv = document.getElementById('operation-params');
+    
+    switch (operation) {
+        case 'fillna':
+            paramsDiv.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Fill Method</label>
+                    <select class="form-select" id="fill-method">
+                        <option value="mean">Mean</option>
+                        <option value="median">Median</option>
+                        <option value="mode">Mode</option>
+                        <option value="value">Custom Value</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="custom-value-div" style="display: none;">
+                    <label class="form-label">Custom Value</label>
+                    <input type="text" class="form-control" id="fill-value">
+                </div>
+            `;
+            break;
+        case 'rename':
+            paramsDiv.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">New Column Name</label>
+                    <input type="text" class="form-control" id="new-name" required>
+                </div>
+            `;
+            break;
+        case 'type':
+            paramsDiv.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">New Data Type</label>
+                    <select class="form-select" id="new-type">
+                        <option value="int">Integer</option>
+                        <option value="float">Float</option>
+                        <option value="str">String</option>
+                        <option value="datetime">DateTime</option>
+                        <option value="category">Category</option>
+                    </select>
+                </div>
+            `;
+            break;
+        default:
+            paramsDiv.innerHTML = '';
+    }
+});
+
+// Function to update dataset statistics
+async function updateStats() {
+    try {
+        const response = await fetch('/api/dataset-stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            const stats = data.stats;
+            document.getElementById('missing-values').textContent =
+                `${stats.missing_values.total} cells (${stats.missing_values.percentage.toFixed(1)}%)`;
+            document.getElementById('duplicates').textContent =
+                `${stats.duplicates.total} rows (${stats.duplicates.percentage.toFixed(1)}%)`;
+        }
+    } catch (error) {
+        console.error('Failed to update stats:', error);
+    }
+}
+
+// Function to load columns
+async function loadColumns() {
+    try {
+        console.log('Cleaning page: Fetching columns from API...');
+        const response = await fetch('/api/columns');
+        console.log('Cleaning page: API Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Cleaning page: API Response data:', data);
+        
+        if (data.success) {
+            const columnSelect = document.getElementById('column-select');
+            columnSelect.innerHTML = '<option value="">Choose a column...</option>';
+            
+            data.columns.forEach(col => {
+                const option = document.createElement('option');
+                option.value = col.name;
+                option.textContent = `${col.name} (${col.dtype})`;
+                columnSelect.appendChild(option);
+            });
+        } else {
+            console.error('No success flag in API response or missing columns data');
+            showToast('error', 'Error', 'Failed to load columns from server');
+        }
+    } catch (error) {
+        console.error('Failed to load columns:', error);
+        showToast('error', 'Error', 'Failed to load columns: ' + error.message);
+    }
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', () => {
+    updateDataPreview();
+    updateStats();
+    loadColumns();
+});
+</script>
+{% endblock %}

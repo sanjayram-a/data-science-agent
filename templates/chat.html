@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}Chat with Agent - Data Science Agent{% endblock %}
+
+{% block page_title %}Chat with Agent{% endblock %}
+
+{% block head_extra %}
+<!-- PrismJS for code highlighting -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="row h-100">
+    <!-- Main Chat Area -->
+    <div class="col-md-9 d-flex flex-column">
+        <div class="card flex-grow-1">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-robot me-2"></i>AI Assistant
+                    </h5>
+                    {% if summary.file_name %}
+                    <small class="text-muted">Analyzing: {{ summary.file_name }}</small>
+                    {% endif %}
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary me-2" onclick="clearChat()">
+                        <i class="fas fa-broom me-1"></i>Clear Chat
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleHelp()">
+                        <i class="fas fa-question-circle me-1"></i>Help
+                    </button>
+                </div>
+            </div>
+            <div class="card-body chat-container p-0">
+                <div id="chat-history" class="chat-messages">
+                    <!-- Welcome message -->
+                    <div class="message agent">
+                        <div class="message-content">
+                            <h6 class="agent-name"><i class="fas fa-robot me-2"></i>AI Assistant</h6>
+                            <div class="message-text">
+                                👋 Welcome! I'm your Data Science Assistant. I can help you analyze data, create visualizations, and generate insights.
+                                {% if summary.file_name %}
+                                I'm currently analyzing <strong>{{ summary.file_name }}</strong>.
+                                {% else %}
+                                Please upload a dataset to begin analysis.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Loading indicator -->
+                <div id="agent-loading-indicator" class="typing-indicator" style="display: none;">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+                <!-- Chat input -->
+                <div class="chat-input">
+                    <form id="chat-form" class="d-flex">
+                        <div class="input-group">
+                            <input type="text" id="user-input" class="form-control"
+                                placeholder="Ask me anything about your data..." required
+                                autocomplete="off">
+                            <button class="btn btn-primary" type="submit" id="send-button">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar with Quick Actions -->
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-sm text-start" onclick="sendQuery('Show me basic statistics of the data')">
+                        <i class="fas fa-calculator me-2"></i>Basic Statistics
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm text-start" onclick="sendQuery('Create a correlation matrix')">
+                        <i class="fas fa-table me-2"></i>Correlation Matrix
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm text-start" onclick="sendQuery('Show missing values analysis')">
+                        <i class="fas fa-search me-2"></i>Missing Values
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm text-start" onclick="sendQuery('Suggest visualizations')">
+                        <i class="fas fa-chart-bar me-2"></i>Suggest Plots
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-lightbulb me-2"></i>Suggestions</h5>
+            </div>
+            <div class="card-body">
+                <div class="suggestions">
+                    <p class="suggestion-tag" onclick="sendQuery('Show the first 5 rows')">Preview data</p>
+                    <p class="suggestion-tag" onclick="sendQuery('Plot distribution of numeric columns')">Distribution plots</p>
+                    <p class="suggestion-tag" onclick="sendQuery('Clean the data')">Clean data</p>
+                    <p class="suggestion-tag" onclick="sendQuery('Identify outliers')">Find outliers</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- PrismJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+
+<script>
+const chatForm = document.getElementById('chat-form');
+const userInput = document.getElementById('user-input');
+const chatHistory = document.getElementById('chat-history');
+const agentLoadingIndicator = document.getElementById('agent-loading-indicator');
+const sendButton = document.getElementById('send-button');
+
+// Function to send a chat message
+async function sendMessage(message) {
+    // Create and append user message
+    const userMsgDiv = document.createElement('div');
+    userMsgDiv.className = 'message user animate__animated animate__fadeInRight';
+    userMsgDiv.innerHTML = `
+        <div class="message-content">
+            <h6 class="user-name"><i class="fas fa-user me-2"></i>You</h6>
+            <div class="message-text">${escapeHtml(message)}</div>
+        </div>
+    `;
+    chatHistory.appendChild(userMsgDiv);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+
+    // Show loading indicator
+    agentLoadingIndicator.style.display = 'flex';
+    sendButton.disabled = true;
+
+    try {
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: message })
+        });
+        const result = await response.json();
+
+        // Create agent reply container
+        const agentMsgDiv = document.createElement('div');
+        agentMsgDiv.className = 'message agent animate__animated animate__fadeInLeft';
+
+        if (response.ok) {
+            // Parse markdown and handle code blocks specially
+            const parsedReply = marked.parse(result.reply || '(No text reply)', {
+                highlight: function(code, language) {
+                    if (Prism.languages[language]) {
+                        return Prism.highlight(code, Prism.languages[language], language);
+                    }
+                    return code;
+                }
+            });
+
+            let additionalInfo = '';
+            if (result.plot_info) {
+                additionalInfo += `
+                    <div class="message-attachment">
+                        <i class="fas fa-chart-line me-2"></i>
+                        <a href="{{ url_for('charts_page') }}" class="text-primary">View generated plot</a>
+                    </div>`;
+            }
+            if (result.exec_output_info && result.exec_output_info.type === 'dataframe_html') {
+                additionalInfo += `
+                    <div class="message-attachment">
+                        <i class="fas fa-table me-2"></i>
+                        <span>DataFrame generated (${result.exec_output_info.shape[0]} rows × ${result.exec_output_info.shape[1]} columns)</span>
+                    </div>`;
+            }
+
+            agentMsgDiv.innerHTML = `
+                <div class="message-content">
+                    <h6 class="agent-name"><i class="fas fa-robot me-2"></i>AI Assistant</h6>
+                    <div class="message-text">${parsedReply}</div>
+                    ${additionalInfo}
+                </div>
+            `;
+        } else {
+            agentMsgDiv.innerHTML = `
+                <div class="message-content error">
+                    <h6 class="agent-name"><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
+                    <div class="message-text">${escapeHtml(result.error || 'Unknown error')}</div>
+                </div>
+            `;
+        }
+        chatHistory.appendChild(agentMsgDiv);
+
+    } catch (error) {
+        console.error('Chat error:', error);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'message agent animate__animated animate__fadeInLeft';
+        errorDiv.innerHTML = `
+            <div class="message-content error">
+                <h6 class="agent-name"><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
+                <div class="message-text">Connection Error: Could not reach agent.</div>
+            </div>
+        `;
+        chatHistory.appendChild(errorDiv);
+    } finally {
+        agentLoadingIndicator.style.display = 'none';
+        sendButton.disabled = false;
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+        userInput.focus();
+    }
+}
+
+// Handle form submission
+chatForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const message = userInput.value.trim();
+    if (!message) return;
+    
+    userInput.value = '';
+    await sendMessage(message);
+});
+
+// Function to send a query from quick actions
+function sendQuery(query) {
+    userInput.value = query;
+    chatForm.dispatchEvent(new Event('submit'));
+}
+
+// Function to clear chat history
+function clearChat() {
+    if (confirm('Are you sure you want to clear the chat history?')) {
+        chatHistory.innerHTML = '';
+        // Add back welcome message
+        const welcomeMsg = document.createElement('div');
+        welcomeMsg.className = 'message agent';
+        welcomeMsg.innerHTML = `
+            <div class="message-content">
+                <h6 class="agent-name"><i class="fas fa-robot me-2"></i>AI Assistant</h6>
+                <div class="message-text">
+                    👋 Welcome! I'm your Data Science Assistant. I can help you analyze data, create visualizations, and generate insights.
+                    {% if summary.file_name %}
+                    I'm currently analyzing <strong>{{ summary.file_name }}</strong>.
+                    {% else %}
+                    Please upload a dataset to begin analysis.
+                    {% endif %}
+                </div>
+            </div>
+        `;
+        chatHistory.appendChild(welcomeMsg);
+    }
+}
+
+// Function to toggle help modal
+function toggleHelp() {
+    const helpContent = `
+        <div class="modal fade" id="helpModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Help & Tips</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h6>Common Commands</h6>
+                        <ul>
+                            <li><code>show first 5 rows</code> - Preview the data</li>
+                            <li><code>plot histogram of [column]</code> - Create a distribution plot</li>
+                            <li><code>show basic statistics</code> - Get summary statistics</li>
+                            <li><code>clean the data</code> - Perform basic data cleaning</li>
+                        </ul>
+                        <h6>Tips</h6>
+                        <ul>
+                            <li>Use natural language to ask questions about your data</li>
+                            <li>You can ask for specific visualizations or let the agent suggest appropriate ones</li>
+                            <li>The agent can perform data cleaning, analysis, and generate insights</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body if it doesn't exist
+    if (!document.getElementById('helpModal')) {
+        document.body.insertAdjacentHTML('beforeend', helpContent);
+    }
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('helpModal'));
+    modal.show();
+}
+
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Handle Ctrl+Enter to submit
+userInput.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') {
+        chatForm.dispatchEvent(new Event('submit'));
+    }
+});
+
+// Initialize tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+});
+</script>
+{% endblock %}

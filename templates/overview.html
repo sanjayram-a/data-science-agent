@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Overview & Upload - Data Science Agent{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <!-- API Key Configuration -->
+        <div class="section">
+            <h2>🔑 API Key Configuration</h2>
+            {% if not api_configured %}
+            <form action="{{ url_for('configure_api_route') }}" method="post">
+                <div class="mb-3">
+                    <label for="gemini_api_key" class="form-label">Google Gemini API Key:</label>
+                    <input type="password" class="form-control" id="gemini_api_key" name="gemini_api_key" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Configure</button>
+            </form>
+            {% else %}
+            <p class="text-success">✅ Gemini API Key is configured.</p>
+            {% endif %}
+        </div>
+
+        <!-- File Upload -->
+        <div class="section">
+            <h2>💾 Upload Data</h2>
+            <form id="upload-form" enctype="multipart/form-data">
+                 <div class="mb-3">
+                    <label for="file" class="form-label">Choose CSV or Excel file:</label>
+                    <input type="file" class="form-control" id="file" name="file" accept=".csv, .xlsx, .xls" required>
+                 </div>
+                <button type="submit" class="btn btn-primary">Upload & Profile</button>
+            </form>
+            <div id="loading-indicator" class="mt-2" style="display: none;">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                Uploading and processing...
+            </div>
+            <div id="upload-status" class="mt-2">
+                {% if summary.file_name %}
+                    <p><strong>Current Data:</strong> {{ summary.file_name }}</p>
+                    <p>Original Rows: {{ summary.original_rows }}, Original Cols: {{ summary.original_cols }}</p>
+                    {% if summary.cleaned_rows %}
+                    <p>Cleaned Rows: {{ summary.cleaned_rows }}, Cleaned Cols: {{ summary.cleaned_cols }}</p>
+                    {% endif %}
+                    <p><i>Full profile loaded. Ready for analysis.</i></p>
+                {% else %}
+                    <p>No data loaded yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <!-- Data Profile Display (Populated by JS) -->
+        <div class="section" id="data-profile-section" {% if not summary.profile %}style="display: none;"{% endif %}>
+             <h2>📊 Data Profile</h2>
+             <pre id="profile-content">{{ summary.profile | tojson(indent=2) if summary.profile else 'Profile will appear here after upload.' }}</pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // JavaScript for AJAX Upload and Profile Display
+    const uploadForm = document.getElementById('upload-form');
+    const uploadStatus = document.getElementById('upload-status');
+    const profileContent = document.getElementById('profile-content');
+    const profileSection = document.getElementById('data-profile-section');
+    const loadingIndicator = document.getElementById('loading-indicator');
+
+    uploadForm.addEventListener('submit', async (event) => {
+        event.preventDefault(); // Prevent default form submission
+        loadingIndicator.style.display = 'block'; // Show loading indicator
+        uploadStatus.innerHTML = ''; // Clear previous status
+        profileSection.style.display = 'none'; // Hide profile details section
+        profileContent.textContent = ''; // Clear previous profile details
+
+        const formData = new FormData(uploadForm);
+
+        try {
+            const response = await fetch('/upload', { // Use the existing upload endpoint
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // Display summary info
+                uploadStatus.innerHTML = `
+                    <p><strong>Current Data:</strong> ${result.filename}</p>
+                    <p>Profile generated successfully. Ready for analysis.</p>`;
+                // Display full profile in the dedicated section
+                profileContent.textContent = JSON.stringify(result.profile, null, 2);
+                profileSection.style.display = 'block'; // Show the profile section
+                // Simple alert for success
+                // alert('File uploaded and profiled successfully!');
+                // Optionally add a Bootstrap alert dynamically
+            } else {
+                uploadStatus.innerHTML = `<p class="text-danger">Error: ${result.error || 'Upload failed.'}</p>`;
+                 if (result.file_loaded) {
+                     uploadStatus.innerHTML += `<p>File was loaded, but profiling failed. Some operations might still work.</p>`;
+                 }
+                 // alert(`Error: ${result.error || 'Upload failed.'}`); // Simple alert for error
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            uploadStatus.innerHTML = `<p class="text-danger">An unexpected error occurred during upload.</p>`;
+            // alert('An unexpected error occurred during upload.');
+        } finally {
+             loadingIndicator.style.display = 'none'; // Hide loading indicator
+             // uploadForm.reset(); // Keep the file input value for context? Or clear? Clearing for now.
+             document.getElementById('file').value = ''; // Clear file input specifically
+        }
+    });
+</script>
+{% endblock %}

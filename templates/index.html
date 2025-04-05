@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Data Science Agent{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Welcome Card -->
+    <div class="col-12">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-robot fa-2x me-3 text-primary"></i>
+                    <div>
+                        <h4 class="mb-1">Welcome to Data Science Agent</h4>
+                        <p class="text-muted mb-0">Upload your data and start analyzing with AI assistance</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Configuration Card -->
+    <div class="col-12 col-md-6 mt-4">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fas fa-key me-2"></i>API Configuration</h5>
+            </div>
+            <div class="card-body">
+                {% if not api_configured %}
+                <form action="{{ url_for('configure_api_route') }}" method="post" class="animate__animated animate__fadeIn">
+                    <div class="mb-3">
+                        <label for="gemini_api_key" class="form-label">Google Gemini API Key</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="gemini_api_key" name="gemini_api_key" required>
+                            <button type="button" class="btn btn-outline-secondary" onclick="togglePassword()">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Configure
+                    </button>
+                </form>
+                {% else %}
+                <div class="text-center py-3">
+                    <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                    <p class="mb-0">API Key is configured and ready to use</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Upload Card -->
+    <div class="col-12 col-md-6 mt-4">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fas fa-upload me-2"></i>Upload Data</h5>
+            </div>
+            <div class="card-body">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Choose CSV or Excel file</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".csv, .xlsx, .xls" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-chart-bar me-2"></i>Upload & Profile
+                    </button>
+                </form>
+                <div id="loading-indicator" class="text-center mt-3" style="display: none;">
+                    <div class="loading-spinner d-inline-block"></div>
+                    <p class="text-muted mt-2">Processing your data...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Data Status -->
+    <div class="col-12 mt-4">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fas fa-database me-2"></i>Current Data Status</h5>
+            </div>
+            <div class="card-body" id="profile-output">
+                {% if summary.file_name %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-file-alt fa-2x text-primary me-3"></i>
+                            <div>
+                                <h6 class="mb-1">{{ summary.file_name }}</h6>
+                                <p class="mb-0 text-muted">Current Dataset</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-table fa-2x text-success me-3"></i>
+                            <div>
+                                <h6 class="mb-1">{{ summary.original_rows }} rows × {{ summary.original_cols }} columns</h6>
+                                <p class="mb-0 text-muted">Original Dimensions</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% if summary.cleaned_rows %}
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-broom fa-2x text-warning me-3"></i>
+                            <div>
+                                <h6 class="mb-1">{{ summary.cleaned_rows }} rows × {{ summary.cleaned_cols }} columns</h6>
+                                <p class="mb-0 text-muted">After Cleaning</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <p class="mb-0">No data loaded yet. Upload a file to begin analysis.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-12 mt-4">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <a href="{{ url_for('chat_page') }}" class="text-decoration-none">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-comments fa-2x text-primary mb-2"></i>
+                                    <h6>Chat with Agent</h6>
+                                    <p class="small text-muted mb-0">Ask questions about your data</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{{ url_for('charts_page') }}" class="text-decoration-none">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-2x text-success mb-2"></i>
+                                    <h6>Visualize Data</h6>
+                                    <p class="small text-muted mb-0">Create charts and plots</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="fas fa-magic fa-2x text-warning mb-2"></i>
+                                <h6>Auto Analysis</h6>
+                                <p class="small text-muted mb-0">Get instant insights</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePassword() {
+    const input = document.getElementById('gemini_api_key');
+    const icon = document.querySelector('.fa-eye');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+}
+
+// File upload handling
+const uploadForm = document.getElementById('upload-form');
+const profileOutput = document.getElementById('profile-output');
+const loadingIndicator = document.getElementById('loading-indicator');
+
+uploadForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    loadingIndicator.style.display = 'block';
+    const formData = new FormData(uploadForm);
+
+    try {
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            location.reload(); // Reload to show updated data status
+        } else {
+            const errorMessage = result.error || 'Upload failed.';
+            showToast('error', 'Upload Error', errorMessage);
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        showToast('error', 'Error', 'An unexpected error occurred during upload.');
+    } finally {
+        loadingIndicator.style.display = 'none';
+        uploadForm.reset();
+    }
+});
+
+// Toast notification function
+function showToast(type, title, message) {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>${title}</strong><br>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+</script>
+{% endblock %}

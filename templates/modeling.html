@@ -1,0 +1,936 @@
+{% extends "base.html" %}
+
+{% block title %}Modeling - Data Science Agent{% endblock %}
+
+{% block page_title %}Machine Learning Models{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Data Summary Card -->
+    <div class="col-12">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-database me-2"></i>Dataset Information</h5>
+                {% if summary.file_name %}
+                <span class="badge bg-primary">{{ summary.file_name }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if summary.file_name %}
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-table fa-2x text-primary me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Training Data</h6>
+                                <p class="mb-0" id="train-size">Calculating...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-vial fa-2x text-info me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Test Data</h6>
+                                <p class="mb-0" id="test-size">Calculating...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle fa-2x text-success me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Features</h6>
+                                <p class="mb-0" id="feature-count">Analyzing...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <p class="mb-0">No data loaded. Please upload a dataset first.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Configuration -->
+    <div class="col-md-4">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-cogs me-2"></i>Model Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form id="model-config-form">
+                    <div class="mb-3">
+                        <label class="form-label">Problem Type</label>
+                        <select class="form-select" id="problem-type">
+                            <option value="regression">Regression</option>
+                            <option value="classification">Classification</option>
+                            <option value="clustering">Clustering</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Model Type</label>
+                        <select class="form-select" id="model-type">
+                            <!-- Options will be populated based on problem type -->
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Target Variable</label>
+                        <select class="form-select" id="target-variable">
+                            <option value="">Select target...</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Features</label>
+                        <div class="feature-select-container">
+                            <!-- Features will be populated dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Train/Test Split</label>
+                        <input type="range" class="form-range" id="split-ratio" min="50" max="90" value="80">
+                        <div class="text-center" id="split-ratio-display">80% Training / 20% Testing</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-play me-2"></i>Train Model
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Model Parameters -->
+        <div class="card mt-4 animate__animated animate__fadeIn">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-sliders-h me-2"></i>Model Parameters</h5>
+            </div>
+            <div class="card-body">
+                <form id="model-params-form">
+                    <div id="param-inputs">
+                        <!-- Parameters will be populated based on model type -->
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Results -->
+    <div class="col-md-8">
+        <div class="card animate__animated animate__fadeIn">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-chart-line me-2"></i>Model Performance</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="downloadModel()">
+                        <i class="fas fa-download me-1"></i>Download Model
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="exportResults()">
+                        <i class="fas fa-file-export me-1"></i>Export Results
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Performance Metrics -->
+                    <div class="col-md-6">
+                        <div class="metrics-container">
+                            <h6 class="mb-3">Performance Metrics</h6>
+                            <div id="metrics-display">
+                                <!-- Metrics will be displayed here -->
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Visualization -->
+                    <div class="col-md-6">
+                        <div class="visualization-container">
+                            <h6 class="mb-3">Model Visualization</h6>
+                            <div id="model-plot">
+                                <!-- Plot will be displayed here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature Importance -->
+                <div class="mt-4">
+                    <h6 class="mb-3">Feature Importance</h6>
+                    <div id="feature-importance">
+                        <!-- Feature importance plot will be displayed here -->
+                    </div>
+                </div>
+
+                <!-- Predictions Preview -->
+                <div class="mt-4">
+                    <h6 class="mb-3">Predictions Preview</h6>
+                    <div class="table-responsive">
+                        <div id="predictions-preview" style="max-height: 300px; overflow: auto;">
+                            <!-- Predictions table will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Model Comparison Modal -->
+<div class="modal fade" id="compareModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Compare Models</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="comparison-chart">
+                    <!-- Comparison chart will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize problem type options
+const modelOptions = {
+    regression: [
+        { value: 'linear', label: 'Linear Regression' },
+        { value: 'ridge', label: 'Ridge Regression' },
+        { value: 'lasso', label: 'Lasso Regression' },
+        { value: 'rf_regressor', label: 'Random Forest Regressor' },
+        { value: 'xgb_regressor', label: 'XGBoost Regressor' }
+    ],
+    classification: [
+        { value: 'logistic', label: 'Logistic Regression' },
+        { value: 'rf_classifier', label: 'Random Forest Classifier' },
+        { value: 'xgb_classifier', label: 'XGBoost Classifier' },
+        { value: 'svm', label: 'Support Vector Machine' }
+    ],
+    clustering: [
+        { value: 'kmeans', label: 'K-Means Clustering' },
+        { value: 'hierarchical', label: 'Hierarchical Clustering' },
+        { value: 'dbscan', label: 'DBSCAN' }
+    ]
+};
+
+// Update model options based on problem type
+document.getElementById('problem-type').addEventListener('change', function(e) {
+    const modelSelect = document.getElementById('model-type');
+    const options = modelOptions[e.target.value];
+    
+    modelSelect.innerHTML = options.map(opt => 
+        `<option value="${opt.value}">${opt.label}</option>`
+    ).join('');
+    
+    updateModelParams();
+});
+
+// Update parameters based on model type
+function updateModelParams() {
+    const modelType = document.getElementById('model-type').value;
+    const paramsForm = document.getElementById('param-inputs');
+    
+    // Example parameter configurations
+    const params = getModelParams(modelType);
+    
+    paramsForm.innerHTML = params.map(param => {
+        // Handle different parameter types (select vs input)
+        if (param.type === 'select' && param.options) {
+            return `
+                <div class="mb-3">
+                    <label for="${param.id}" class="form-label">${param.label}</label>
+                    <select class="form-select" id="${param.id}" name="${param.id}">
+                        ${param.options.map(option => 
+                            `<option value="${option}" ${param.default === option ? 'selected' : ''}>${option}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+            `;
+        } else if (param.type === 'checkbox') {
+            return `
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" 
+                           id="${param.id}" name="${param.id}"
+                           ${param.default ? 'checked' : ''}>
+                    <label class="form-check-label" for="${param.id}">${param.label}</label>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="mb-3">
+                    <label for="${param.id}" class="form-label">${param.label}</label>
+                    <input type="${param.type}" class="form-control" 
+                           id="${param.id}" name="${param.id}"
+                           value="${param.default}"
+                           ${param.min !== undefined ? `min="${param.min}"` : ''}
+                           ${param.max !== undefined ? `max="${param.max}"` : ''}>
+                </div>
+            `;
+        }
+    }).join('');
+    
+    // Add detailed help text for each parameter
+    document.querySelectorAll('#param-inputs label').forEach(label => {
+        const paramId = label.getAttribute('for');
+        const helpText = getParamHelpText(paramId);
+        
+        if (helpText) {
+            const helpEl = document.createElement('div');
+            helpEl.className = 'form-text text-muted small';
+            helpEl.textContent = helpText;
+            
+            // Insert after the input element
+            const input = document.getElementById(paramId);
+            if (input && input.parentNode) {
+                input.insertAdjacentElement('afterend', helpEl);
+            }
+        }
+    });
+}
+
+// Get model parameters based on model type
+function getModelParams(modelType) {
+    // Example parameter configurations
+    const paramConfigs = {
+        linear: [
+            { id: 'fit_intercept', label: 'Fit Intercept', type: 'checkbox', default: true }
+        ],
+        ridge: [
+            { id: 'alpha', label: 'Alpha', type: 'number', default: 1.0, min: 0 }
+        ],
+        rf_regressor: [
+            { id: 'n_estimators', label: 'Number of Trees', type: 'number', default: 100, min: 1 },
+            { id: 'max_depth', label: 'Max Depth', type: 'number', default: 10, min: 1 }
+        ],
+        logistic: [
+            { id: 'C', label: 'Regularization (C)', type: 'number', default: 1.0, min: 0.001 },
+            { id: 'max_iter', label: 'Max Iterations', type: 'number', default: 100, min: 10 }
+        ],
+        rf_classifier: [
+            { id: 'n_estimators', label: 'Number of Trees', type: 'number', default: 100, min: 1 },
+            { id: 'max_depth', label: 'Max Depth', type: 'number', default: 10, min: 1 }
+        ],
+        kmeans: [
+            { id: 'n_clusters', label: 'Number of Clusters', type: 'number', default: 3, min: 2 },
+            { id: 'random_state', label: 'Random State', type: 'number', default: 42, min: 0 }
+        ],
+        xgb_regressor: [
+            { id: 'n_estimators', label: 'Number of Trees', type: 'number', default: 100, min: 1 },
+            { id: 'learning_rate', label: 'Learning Rate', type: 'number', default: 0.1, min: 0.001, max: 1 }
+        ],
+        xgb_classifier: [
+            { id: 'n_estimators', label: 'Number of Trees', type: 'number', default: 100, min: 1 },
+            { id: 'learning_rate', label: 'Learning Rate', type: 'number', default: 0.1, min: 0.001, max: 1 }
+        ],
+        svm: [
+            { id: 'C', label: 'Regularization (C)', type: 'number', default: 1.0, min: 0.001 },
+            { id: 'kernel', label: 'Kernel', type: 'select', default: 'rbf', options: ['linear', 'poly', 'rbf', 'sigmoid'] }
+        ],
+        hierarchical: [
+            { id: 'n_clusters', label: 'Number of Clusters', type: 'number', default: 3, min: 2 },
+            { id: 'linkage', label: 'Linkage Method', type: 'select', default: 'ward', options: ['ward', 'complete', 'average', 'single'] }
+        ],
+        dbscan: [
+            { id: 'eps', label: 'Epsilon', type: 'number', default: 0.5, min: 0.1 },
+            { id: 'min_samples', label: 'Min Samples', type: 'number', default: 5, min: 1 }
+        ]
+    };
+    
+    return paramConfigs[modelType] || [];
+}
+
+// Get help text for parameters
+function getParamHelpText(paramId) {
+    const helpTexts = {
+        'n_estimators': 'The number of trees in the forest. Higher values generally improve model accuracy but increase training time.',
+        'max_depth': 'The maximum depth of each tree. Higher values may lead to overfitting.',
+        'C': 'Regularization strength (inverse). Smaller values specify stronger regularization.',
+        'alpha': 'Regularization strength. Higher values specify stronger regularization.',
+        'learning_rate': 'Step size shrinkage used to prevent overfitting. Values between 0.01 and 0.3 work well.',
+        'n_clusters': 'The number of clusters to form and centroids to generate.',
+        'eps': 'The maximum distance between two samples for them to be considered as in the same neighborhood.',
+        'min_samples': 'The number of samples in a neighborhood for a point to be considered as a core point.',
+        'kernel': 'Specifies the kernel type to be used in the algorithm.',
+        'random_state': 'Random seed for reproducible results.',
+        'linkage': 'Which linkage criterion to use. Determines which distance to use between sets of observations.',
+        'fit_intercept': 'Whether to calculate the intercept for this model.'
+    };
+    
+    return helpTexts[paramId] || '';
+}
+
+// Error handling wrapper for fetch operations
+async function fetchWithErrorHandling(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+        
+        if (!response.ok) {
+            // Try to get error message from response
+            try {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Server responded with status ${response.status}`);
+            } catch (jsonError) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error(`Fetch error for ${url}:`, error);
+        throw error;
+    }
+}
+
+// Handle model training with enhanced validation and error handling
+document.getElementById('model-config-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Get selected features
+    const selectedFeatures = [];
+    document.querySelectorAll('.feature-check:checked').forEach(checkbox => {
+        selectedFeatures.push(checkbox.value);
+    });
+    
+    // Validate form inputs
+    const target = document.getElementById('target-variable').value;
+    const problemType = document.getElementById('problem-type').value;
+    const modelType = document.getElementById('model-type').value;
+    
+    // Perform validation checks
+    if (!target) {
+        showToast('error', 'Validation Error', 'Please select a target variable');
+        return;
+    }
+    
+    if (selectedFeatures.length === 0) {
+        showToast('error', 'Validation Error', 'Please select at least one feature');
+        return;
+    }
+    
+    // Validate that target is not also selected as a feature
+    if (selectedFeatures.includes(target)) {
+        showToast('warning', 'Warning', 'Target variable is also selected as a feature. This might cause issues.');
+    }
+    
+    // Show loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Training...';
+    
+    // Show a training message in the metrics display
+    const metricsDisplay = document.getElementById('metrics-display');
+    metricsDisplay.innerHTML = '<div class="training-indicator"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Training model...</p></div>';
+    
+    const formData = {
+        problem_type: problemType,
+        model_type: modelType,
+        target: target,
+        features: selectedFeatures,
+        split_ratio: document.getElementById('split-ratio').value / 100,
+        parameters: getModelParameters()
+    };
+    
+    try {
+        const result = await fetchWithErrorHandling('/api/train-model', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (result.success) {
+            showToast('success', 'Success', 'Model trained successfully');
+            updateResults(result);
+            
+            // Save model details to localStorage for comparison later
+            saveModelToHistory(modelType, formData.parameters, result.metrics);
+        } else {
+            showToast('error', 'Error', result.error || 'Training failed');
+            metricsDisplay.innerHTML = `<div class="alert alert-danger">Training failed: ${result.error || 'Unknown error'}</div>`;
+        }
+    } catch (error) {
+        console.error('Training error:', error);
+        showToast('error', 'Error', error.message || 'Failed to train model. Please try again.');
+        metricsDisplay.innerHTML = `<div class="alert alert-danger">Error: ${error.message || 'Failed to communicate with server'}</div>`;
+    } finally {
+        // Restore button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    }
+});
+
+// Get model parameters from form
+function getModelParameters() {
+    const params = {};
+    const inputs = document.querySelectorAll('#param-inputs input, #param-inputs select');
+    inputs.forEach(input => {
+        if (input.type === 'checkbox') {
+            params[input.id] = input.checked;
+        } else if (input.type === 'number') {
+            params[input.id] = Number(input.value);
+        } else {
+            params[input.id] = input.value;
+        }
+    });
+    return params;
+}
+
+// Update parameters based on model type
+document.getElementById('model-type').addEventListener('change', updateModelParams);
+
+// Update results display
+function updateResults(results) {
+    if (!results) return;
+    
+    // Update metrics
+    const metricsContainer = document.getElementById('metrics-display');
+    if (results.metrics && Object.keys(results.metrics).length > 0) {
+        const metricsHtml = Object.entries(results.metrics)
+            .map(([key, value]) => `
+                <div class="metric-item">
+                    <span class="metric-label">${key}:</span>
+                    <span class="metric-value">${typeof value === 'number' ? value.toFixed(4) : value}</span>
+                </div>
+            `).join('');
+        metricsContainer.innerHTML = metricsHtml;
+    } else {
+        metricsContainer.innerHTML = '<p class="text-muted">No metrics available</p>';
+    }
+    
+    // Update plots
+    if (results.plots) {
+        document.getElementById('model-plot').innerHTML = results.plots.main || '';
+        document.getElementById('feature-importance').innerHTML = results.plots.feature_importance || '';
+    }
+    
+    // Update predictions preview
+    if (results.predictions_preview) {
+        document.getElementById('predictions-preview').innerHTML = results.predictions_preview;
+    }
+}
+
+// Download trained model
+function downloadModel() {
+    // Check if model exists first
+    fetch('/api/model-exists')
+        .then(response => response.json())
+        .then(data => {
+            if (data.exists) {
+                window.location.href = '/api/download-model';
+            } else {
+                showToast('error', 'Error', 'No trained model available for download');
+            }
+        })
+        .catch(() => {
+            showToast('error', 'Error', 'Failed to check model status');
+        });
+}
+
+// Export results
+function exportResults() {
+    // Check if results exist first
+    fetch('/api/results-exist')
+        .then(response => response.json())
+        .then(data => {
+            if (data.exists) {
+                window.location.href = '/api/export-results';
+            } else {
+                showToast('error', 'Error', 'No results available for export');
+            }
+        })
+        .catch(() => {
+            showToast('error', 'Error', 'Failed to check results status');
+        });
+}
+
+// Update split ratio display
+document.getElementById('split-ratio').addEventListener('input', function(e) {
+    const trainRatio = e.target.value;
+    const testRatio = 100 - trainRatio;
+    document.getElementById('split-ratio-display').textContent = 
+        `${trainRatio}% Training / ${testRatio}% Testing`;
+});
+
+// Function to load columns with enhanced error handling
+async function loadColumns() {
+    const targetSelect = document.getElementById('target-variable');
+    const featureContainer = document.querySelector('.feature-select-container');
+    
+    // Show loading state
+    const loadingEl = document.createElement('div');
+    loadingEl.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><p class="mt-2">Loading columns...</p></div>';
+    
+    targetSelect.disabled = true;
+    featureContainer.innerHTML = '';
+    featureContainer.appendChild(loadingEl);
+    
+    try {
+        console.log('Fetching columns from API...');
+        const response = await fetch('/api/columns');
+        console.log('API Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('API Response data:', data);
+        
+        if (data.success && data.columns && data.columns.length > 0) {
+            // Populate target variable dropdown
+            targetSelect.innerHTML = '<option value="">Select target...</option>';
+            data.columns.forEach(col => {
+                const option = document.createElement('option');
+                option.value = col.name;
+                option.textContent = `${col.name} (${col.dtype})`;
+                targetSelect.appendChild(option);
+            });
+            
+            // Create feature selection container with search
+            const searchDiv = document.createElement('div');
+            searchDiv.className = 'mb-3';
+            searchDiv.innerHTML = `
+                <input type="text" class="form-control form-control-sm" 
+                       id="feature-search" placeholder="Search features..."
+                       aria-label="Search features">
+            `;
+            
+            // Add select/deselect all features
+            const selectAllDiv = document.createElement('div');
+            selectAllDiv.className = 'mb-2 d-flex justify-content-between align-items-center';
+            selectAllDiv.innerHTML = `
+                <div>
+                    <button type="button" class="btn btn-sm btn-link p-0" id="select-all-features">Select All</button> / 
+                    <button type="button" class="btn btn-sm btn-link p-0" id="deselect-all-features">Deselect All</button>
+                </div>
+                <span class="badge bg-primary" id="selected-count">0 selected</span>
+            `;
+            
+            // Create feature list container
+            const featureListDiv = document.createElement('div');
+            featureListDiv.className = 'feature-list';
+            featureListDiv.style.maxHeight = '200px';
+            featureListDiv.style.overflowY = 'auto';
+            
+            // Add features to the list
+            featureListDiv.innerHTML = data.columns.map(col => `
+                <div class="form-check">
+                    <input class="form-check-input feature-check" type="checkbox" id="feature-${col.name}" value="${col.name}" data-type="${col.dtype}">
+                    <label class="form-check-label" for="feature-${col.name}">
+                        ${col.name} <span class="badge bg-light text-dark">${col.dtype}</span>
+                    </label>
+                </div>
+            `).join('');
+            
+            // Clear and rebuild feature container
+            featureContainer.innerHTML = '';
+            featureContainer.appendChild(searchDiv);
+            featureContainer.appendChild(selectAllDiv);
+            featureContainer.appendChild(featureListDiv);
+            
+            // Add event listeners
+            document.getElementById('select-all-features').addEventListener('click', () => {
+                document.querySelectorAll('.feature-check:not(:disabled)').forEach(cb => cb.checked = true);
+                updateSelectedCount();
+            });
+            
+            document.getElementById('deselect-all-features').addEventListener('click', () => {
+                document.querySelectorAll('.feature-check').forEach(cb => cb.checked = false);
+                updateSelectedCount();
+            });
+            
+            // Add search functionality
+            document.getElementById('feature-search').addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                document.querySelectorAll('.form-check').forEach(check => {
+                    const label = check.querySelector('label').textContent.toLowerCase();
+                    if (label.includes(searchTerm)) {
+                        check.style.display = 'block';
+                    } else {
+                        check.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Auto-select all features by default
+            document.querySelectorAll('.feature-check').forEach(cb => cb.checked = true);
+            
+            // Add change event to update counter
+            document.querySelectorAll('.feature-check').forEach(cb => {
+                cb.addEventListener('change', updateSelectedCount);
+            });
+            
+            // Update selected count initially
+            updateSelectedCount();
+            
+            // Add event listener for target variable change
+            targetSelect.addEventListener('change', (e) => {
+                const targetValue = e.target.value;
+                
+                // Disable the selected target in feature list
+                document.querySelectorAll('.feature-check').forEach(cb => {
+                    if (cb.value === targetValue) {
+                        cb.checked = false;
+                        cb.disabled = true;
+                        cb.closest('.form-check').classList.add('text-muted');
+                    } else {
+                        cb.disabled = false;
+                        cb.closest('.form-check').classList.remove('text-muted');
+                    }
+                });
+                
+                updateSelectedCount();
+            });
+        } else {
+            console.error('No columns returned from API or empty columns array');
+            featureContainer.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No columns available. Please upload a dataset with valid columns.
+                </div>
+            `;
+        }
+        
+        targetSelect.disabled = false;
+        
+    } catch (error) {
+        console.error('Failed to load columns:', error);
+        featureContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                Failed to load columns: ${error.message}
+                <button class="btn btn-sm btn-outline-danger mt-2" onclick="loadColumns()">
+                    <i class="fas fa-sync-alt me-1"></i>Retry
+                </button>
+            </div>
+        `;
+        showToast('error', 'Error', 'Failed to load columns: ' + error.message);
+    }
+}
+
+// Function to update model info
+async function updateModelInfo() {
+    try {
+        const response = await fetch('/api/model-info');
+        const data = await response.json();
+        
+        if (data.success) {
+            const info = data.info;
+            document.getElementById('train-size').textContent =
+                `${info.train_size} rows (${((info.train_size/info.total_rows)*100).toFixed(1)}%)`;
+            document.getElementById('test-size').textContent =
+                `${info.test_size} rows (${((info.test_size/info.total_rows)*100).toFixed(1)}%)`;
+            document.getElementById('feature-count').textContent =
+                `${info.feature_count} total (${info.numeric_features} numeric, ${info.categorical_features} categorical)`;
+        }
+    } catch (error) {
+        console.error('Failed to update model info:', error);
+        // Don't show a toast here as this is not critical
+        // Just show default values
+        document.getElementById('train-size').textContent = 'Not available';
+        document.getElementById('test-size').textContent = 'Not available';
+        document.getElementById('feature-count').textContent = 'Not available';
+    }
+}
+
+// Toast notification function
+function showToast(type, title, message) {
+    // Map type to Bootstrap color scheme
+    const bsType = {
+        'success': 'success',
+        'error': 'danger',
+        'warning': 'warning',
+        'info': 'info'
+    }[type] || 'primary';
+    
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${bsType} border-0 position-fixed bottom-0 end-0 m-3`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>${title}</strong><br>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+
+// Save model to history for comparison
+function saveModelToHistory(modelType, parameters, metrics) {
+    try {
+        let modelHistory = JSON.parse(localStorage.getItem('modelHistory') || '[]');
+        
+        // Limit history to 5 most recent models
+        if (modelHistory.length >= 5) {
+            modelHistory.shift(); // Remove oldest model
+        }
+        
+        modelHistory.push({
+            timestamp: new Date().toISOString(),
+            modelType,
+            parameters,
+            metrics
+        });
+        
+        localStorage.setItem('modelHistory', JSON.stringify(modelHistory));
+        
+        // Update compare button visibility
+        updateCompareButtonVisibility();
+    } catch (error) {
+        console.error('Error saving model to history:', error);
+    }
+}
+
+// Show/hide compare button based on model history
+function updateCompareButtonVisibility() {
+    try {
+        const modelHistory = JSON.parse(localStorage.getItem('modelHistory') || '[]');
+        const compareBtn = document.createElement('button');
+        compareBtn.className = 'btn btn-sm btn-outline-info ms-2';
+        compareBtn.innerHTML = '<i class="fas fa-chart-bar me-1"></i>Compare Models';
+        compareBtn.onclick = showModelComparison;
+        
+        // Only show if we have multiple models
+        const btnContainer = document.querySelector('.card-header .btn-group');
+        const existingBtn = document.querySelector('.btn-compare-models');
+        
+        if (existingBtn) {
+            existingBtn.remove();
+        }
+        
+        if (modelHistory.length > 1 && btnContainer) {
+            compareBtn.classList.add('btn-compare-models');
+            btnContainer.appendChild(compareBtn);
+        }
+    } catch (error) {
+        console.error('Error updating compare button:', error);
+    }
+}
+
+// Show model comparison modal
+function showModelComparison() {
+    try {
+        const modelHistory = JSON.parse(localStorage.getItem('modelHistory') || '[]');
+        const modal = new bootstrap.Modal(document.getElementById('compareModal'));
+        
+        if (modelHistory.length < 2) {
+            showToast('warning', 'Not Enough Data', 'Need at least 2 models for comparison');
+            return;
+        }
+        
+        // Create comparison table
+        const comparisonDiv = document.getElementById('comparison-chart');
+        
+        let html = `
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Model Type</th>
+                        <th>Parameters</th>
+                        <th>Performance</th>
+                        <th>Trained</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        modelHistory.forEach(model => {
+            const date = new Date(model.timestamp);
+            const dateString = date.toLocaleString();
+            
+            const paramString = Object.entries(model.parameters)
+                .map(([key, val]) => `${key}: ${val}`)
+                .join(', ');
+                
+            const metricsString = Object.entries(model.metrics)
+                .map(([key, val]) => `${key}: ${typeof val === 'number' ? val.toFixed(4) : val}`)
+                .join('<br>');
+                
+            html += `
+                <tr>
+                    <td>${model.modelType}</td>
+                    <td><small>${paramString}</small></td>
+                    <td>${metricsString}</td>
+                    <td><small>${dateString}</small></td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        comparisonDiv.innerHTML = html;
+        
+        modal.show();
+    } catch (error) {
+        console.error('Error showing model comparison:', error);
+        showToast('error', 'Error', 'Failed to load model comparison');
+    }
+}
+
+// Update the count of selected features
+function updateSelectedCount() {
+    const selectedFeatures = document.querySelectorAll('.feature-check:checked').length;
+    const totalFeatures = document.querySelectorAll('.feature-check:not(:disabled)').length;
+    const countBadge = document.getElementById('selected-count');
+    
+    if (countBadge) {
+        countBadge.textContent = `${selectedFeatures}/${totalFeatures} selected`;
+        
+        // Update badge color based on selection
+        if (selectedFeatures === 0) {
+            countBadge.className = 'badge bg-danger';
+        } else if (selectedFeatures === totalFeatures) {
+            countBadge.className = 'badge bg-success';
+        } else {
+            countBadge.className = 'badge bg-primary';
+        }
+    }
+}
+
+// Initialize page with loading state indicators
+document.addEventListener('DOMContentLoaded', () => {
+    // Initial loading states
+    document.getElementById('metrics-display').innerHTML = '<p class="text-muted">Train a model to see performance metrics</p>';
+    document.getElementById('model-plot').innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-chart-area fa-3x mb-3"></i><p>No visualization yet</p></div>';
+    document.getElementById('feature-importance').innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-chart-bar fa-2x mb-2"></i><p>Train a model to see feature importance</p></div>';
+    document.getElementById('predictions-preview').innerHTML = '<div class="text-center text-muted py-3"><p>No predictions available</p></div>';
+    
+    // Load initial data
+    loadColumns();
+    updateModelInfo();
+    
+    // Trigger initial model type options update
+    document.getElementById('problem-type').dispatchEvent(new Event('change'));
+    
+    // Check for previous models
+    updateCompareButtonVisibility();
+    
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+});
+</script>
+{% endblock %}
